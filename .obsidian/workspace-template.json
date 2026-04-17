@@ -1,0 +1,77 @@
+{
+  "main": {
+    "id": "root",
+    "type": "split",
+    "children": [
+      {
+        "id": "main-tabs",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "overview-tab",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": { "file": "wiki/overview.md", "mode": "source", "source": false }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "left",
+    "type": "split",
+    "children": [
+      {
+        "id": "left-tabs",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "file-explorer",
+            "type": "leaf",
+            "state": { "type": "file-explorer", "state": {} }
+          },
+          {
+            "id": "search",
+            "type": "leaf",
+            "state": { "type": "search", "state": {} }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 260
+  },
+  "right": {
+    "id": "right",
+    "type": "split",
+    "children": [
+      {
+        "id": "right-tabs",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "backlinks",
+            "type": "leaf",
+            "state": { "type": "backlink", "state": {} }
+          },
+          {
+            "id": "outline",
+            "type": "leaf",
+            "state": { "type": "outline", "state": {} }
+          },
+          {
+            "id": "graph",
+            "type": "leaf",
+            "state": { "type": "graph", "state": {} }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 320
+  },
+  "active": "overview-tab"
+}

@@ -1,0 +1,8 @@
+{
+  "graph:open": [{ "modifiers": ["Mod"], "key": "G" }],
+  "global-search:open": [{ "modifiers": ["Mod", "Shift"], "key": "F" }],
+  "switcher:open": [{ "modifiers": ["Mod"], "key": "O" }],
+  "command-palette:open": [{ "modifiers": ["Mod"], "key": "P" }],
+  "app:go-back": [{ "modifiers": ["Mod", "Alt"], "key": "ArrowLeft" }],
+  "app:go-forward": [{ "modifiers": ["Mod", "Alt"], "key": "ArrowRight" }]
+}

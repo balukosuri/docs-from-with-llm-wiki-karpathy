@@ -1,0 +1,75 @@
+# docs-from-code-with-llm-wiki — configuration
+#
+# This is the single lever you pull to customize the template for your project.
+# Edit this file once. Commit it. The post-commit hook reads it on every run.
+
+# Which AI CLI should the hook invoke in headless mode?
+#   claude        → Claude Code CLI        (https://docs.claude.com/claude-code)
+#   cursor-agent  → Cursor CLI             (https://docs.cursor.com/cli)
+#   codex         → OpenAI Codex CLI       (https://github.com/openai/codex)
+# All three read CLAUDE.md automatically from the repo root.
+cli: claude
+
+# Toggle the categories of documentation you want generated.
+# Set to false for anything you don't want the wiki to maintain.
+doc_types:
+  architecture: true    # Internal: module map, subsystem responsibilities, data flow
+  api: true             # Public function / class / CLI reference (grounded in signatures)
+  user: false           # End-user README drafts, usage, how-tos. Enable this for CLI-based projects.
+  decisions: true       # ADR-style decision records proposed from commit messages
+  concepts: true        # Domain ideas discovered in the code
+
+# Which paths in the diff are worth documenting. Use gitignore-style globs.
+include:
+  - "src/**"
+  - "lib/**"
+  - "cmd/**"
+  - "pkg/**"
+  - "internal/**"
+
+# Paths to ignore, even if they match `include`.
+exclude:
+  - "**/*.test.*"
+  - "**/*.spec.*"
+  - "**/__tests__/**"
+  - "**/node_modules/**"
+  - "**/vendor/**"
+  - "dist/**"
+  - "build/**"
+  - "wiki/**"
+  - ".llmwiki/**"
+
+# Optional: define your own page types. Each becomes a first-class category under wiki/<dir>/
+# and the AI reads this list from CLAUDE.md's "Configuration" step on every ingest.
+#
+# Schema for each entry:
+#   name    (str)   singular noun used by the AI when referring to these pages
+#   dir     (str)   folder under wiki/ where pages of this type live (trailing / optional)
+#   trigger (str)   plain-English description of when a page of this type should be created
+#                   or updated. The AI reads this as a hint; keep it short and specific.
+#
+# Uncomment or add your own entries below. Default is an empty list (no custom types).
+custom_types: []
+#
+# Examples you can uncomment:
+#
+# custom_types:
+#   - name: runbook
+#     dir: runbooks/
+#     trigger: "when the diff touches infra/ or ops/, or adds a new deployment script"
+#   - name: schema
+#     dir: schemas/
+#     trigger: "when the diff changes a database migration or a protobuf/graphql schema"
+#   - name: security-review
+#     dir: security/
+#     trigger: "when the diff touches auth, crypto, or anything under src/security/"
+
+# Advanced: how the hook behaves. Defaults are almost always fine.
+hook:
+  # Run ingest in the background so `git commit` returns instantly.
+  async: true
+  # Maximum diff size (lines) before the hook skips an ingest and only logs a warning.
+  # Prevents runaway costs on massive refactors. Re-run manually with `.llmwiki/ingest.sh --force`.
+  max_diff_lines: 2000
+  # Commit message the hook uses for the follow-up wiki commit.
+  commit_message_prefix: "wiki: update"

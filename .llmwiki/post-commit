@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# post-commit — thin wrapper. Spawns ingest.sh in the background so the commit returns instantly.
+#
+# Installed via .llmwiki/install-hook.sh as a symlink at .git/hooks/post-commit.
+# Do not invoke directly.
+
+set -eu
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+# Skip if we are already inside an ingest (prevents recursion — the wiki commit triggers this hook too)
+if [ -n "${LLMWIKI_INGEST_IN_PROGRESS:-}" ]; then
+  exit 0
+fi
+
+# Skip if the HEAD commit subject starts with our own prefix (belt-and-braces)
+SUBJECT=$(git log -1 --pretty=%s)
+case "$SUBJECT" in
+  "wiki: update"*) exit 0 ;;
+esac
+
+mkdir -p .llmwiki/state
+
+# Fire and forget — detach from terminal, redirect output, do not block commit
+nohup bash .llmwiki/ingest.sh >> .llmwiki/state/ingest.log 2>&1 </dev/null &
+disown 2>/dev/null || true
+
+exit 0

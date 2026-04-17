@@ -1,0 +1,13 @@
+# Local state for the ingest hook — never commit these
+.llmwiki/state/
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*~
+
+# Obsidian per-user cache and workspace state (Obsidian mutates workspace.json on every open).
+# The committed workspace-template.json is copied into place by install-hook.sh.
+.obsidian/cache
+.obsidian/workspaces.json
+.obsidian/workspace.json
