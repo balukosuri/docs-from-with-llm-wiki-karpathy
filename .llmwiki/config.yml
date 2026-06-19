@@ -4,9 +4,9 @@
 # Edit this file once. Commit it. The post-commit hook reads it on every run.
 
 # Which AI CLI should the hook invoke in headless mode?
-#   claude        → Claude Code CLI        (https://docs.claude.com/claude-code)
-#   cursor-agent  → Cursor CLI             (https://docs.cursor.com/cli)
-#   codex         → OpenAI Codex CLI       (https://github.com/openai/codex)
+#   claude  → Claude Code CLI   (https://docs.claude.com/claude-code)
+#   agent   → Cursor CLI        (https://cursor.com/docs/cli/overview)
+#   codex   → OpenAI Codex CLI  (https://github.com/openai/codex)
 # All three read CLAUDE.md automatically from the repo root.
 cli: claude
 
