@@ -10,14 +10,16 @@
 #               repos before enabling the hook for real.
 #
 # What it does (non-dry-run):
-#   1. Holds an flock so overlapping commits queue safely
+#   1. Holds a mkdir-based lock so overlapping commits queue safely
 #   2. Diffs <last-ingested-sha>..HEAD (or HEAD~1..HEAD on first run)
 #   3. Pipes the prompt template + diff into the configured AI CLI in headless mode
 #   4. The CLI reads CLAUDE.md + config.yml, updates wiki/ pages, saves the files
 #   5. We commit wiki/ as a follow-up commit with message "wiki: update (<sha>)"
 #
-# The CLI is expected to accept `-p` (headless print mode). Claude Code, Cursor CLI,
-# and Codex CLI all support this.
+# Supported CLIs and their headless invocation:
+#   claude  → claude -p --allowedTools ... < prompt
+#   codex   → codex exec --sandbox workspace-write < prompt  (stdin via "-")
+#   agent   → agent -p --force < prompt                      (Cursor CLI)
 
 set -euo pipefail
 
@@ -29,12 +31,15 @@ LOCK="$STATE_DIR/ingest.lock"
 LAST_SHA_FILE="$STATE_DIR/last-ingested-sha"
 mkdir -p "$STATE_DIR"
 
-# Prevent overlapping runs (if you commit twice quickly, the second waits)
-exec 9>"$LOCK"
-if ! flock -n 9; then
-  echo "[$(date '+%F %T')] ingest already running, queueing..."
-  flock 9
-fi
+# Prevent overlapping runs (uses mkdir which is atomic on all POSIX systems,
+# including macOS where flock is not available).
+_cleanup_lock() { rmdir "$LOCK" 2>/dev/null || true; }
+trap _cleanup_lock EXIT
+
+while ! mkdir "$LOCK" 2>/dev/null; do
+  echo "[$(date '+%F %T')] ingest already running, waiting..."
+  sleep 1
+done
 
 FORCE=0
 DRY=0
@@ -62,12 +67,8 @@ esac
 if [ -s "$LAST_SHA_FILE" ]; then
   LAST=$(cat "$LAST_SHA_FILE")
 else
-  # First run: diff against the parent, or against the empty tree for the very first commit
-  if git rev-parse HEAD~1 >/dev/null 2>&1; then
-    LAST=$(git rev-parse HEAD~1)
-  else
-    LAST=$(git hash-object -t tree /dev/null) # empty tree
-  fi
+  # First run: diff against the empty tree so the ingest covers the entire repo
+  LAST=$(git hash-object -t tree /dev/null)
 fi
 
 if [ "$LAST" = "$HEAD_SHA" ] && [ "$FORCE" = "0" ]; then
@@ -167,10 +168,14 @@ fi
   echo '```'
 } > "$STATE_DIR/ingest-prompt.md"
 
+# Build the CLI invocation command based on which CLI is configured.
+# Each CLI has different flags for headless mode, permissions, and model selection.
+MODEL=$(yaml_get_nested hook model "")
+
 if [ "$DRY" = "1" ]; then
   PROMPT_BYTES=$(wc -c < "$STATE_DIR/ingest-prompt.md" | tr -d ' ')
   echo "[$(date '+%F %T')] dry-run: prompt built at $STATE_DIR/ingest-prompt.md ($PROMPT_BYTES bytes)"
-  echo "[$(date '+%F %T')] dry-run: would invoke -> $CLI -p < $STATE_DIR/ingest-prompt.md"
+  echo "[$(date '+%F %T')] dry-run: would invoke $CLI (model: ${MODEL:-default}) with prompt from $STATE_DIR/ingest-prompt.md"
   echo "[$(date '+%F %T')] dry-run: NO network call made, NO wiki commit produced"
   echo "[$(date '+%F %T')] inspect with: cat $STATE_DIR/ingest-prompt.md"
   exit 0
@@ -178,7 +183,41 @@ fi
 
 # Invoke the CLI in headless mode. Environment variable lets the hook recognise its own work.
 export LLMWIKI_INGEST_IN_PROGRESS=1
-if ! "$CLI" -p < "$STATE_DIR/ingest-prompt.md" > "$STATE_DIR/ingest-output.log" 2>&1; then
+
+run_cli() {
+  local prompt_file="$1" log_file="$2"
+  case "$CLI" in
+    claude)
+      local model_flag=""
+      [ -n "$MODEL" ] && model_flag="--model $MODEL"
+      # shellcheck disable=SC2086
+      "$CLI" -p $model_flag --allowedTools Edit,Write,Read,Glob,Grep,Bash \
+        < "$prompt_file" > "$log_file" 2>&1
+      ;;
+    codex)
+      local model_flag=""
+      [ -n "$MODEL" ] && model_flag="--model $MODEL"
+      # codex exec reads stdin when "-" is the prompt argument
+      # shellcheck disable=SC2086
+      "$CLI" exec $model_flag --sandbox workspace-write - \
+        < "$prompt_file" > "$log_file" 2>&1
+      ;;
+    agent)
+      local model_flag=""
+      [ -n "$MODEL" ] && model_flag="--model $MODEL"
+      # Cursor CLI takes the prompt as a positional argument, not stdin
+      # shellcheck disable=SC2086
+      "$CLI" -p --force $model_flag "$(cat "$prompt_file")" \
+        > "$log_file" 2>&1
+      ;;
+    *)
+      echo "[$(date '+%F %T')] unsupported CLI: $CLI" >&2
+      return 1
+      ;;
+  esac
+}
+
+if ! run_cli "$STATE_DIR/ingest-prompt.md" "$STATE_DIR/ingest-output.log"; then
   echo "[$(date '+%F %T')] $CLI exited non-zero. Output:"
   tail -n 50 "$STATE_DIR/ingest-output.log" || true
   echo "[$(date '+%F %T')] ingest failed — wiki NOT updated. Re-run manually:  bash .llmwiki/ingest.sh --force"
